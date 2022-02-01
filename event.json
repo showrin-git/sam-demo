@@ -1,0 +1,16 @@
+{
+    "resource": "/hello/{username}",
+    "path": "/hello/sci01943",
+    "httpMethod": "GET",
+    "queryStringParameters": {
+        "username": "sci01943"
+    },
+    "pathParameters": {
+        "bar": "barbar",
+        "foo": "foofoo",
+        "username": "sci01943"
+    },
+    "stageVariables": null,
+    "body": null,
+    "isBase64Encoded": false
+}

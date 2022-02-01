@@ -1,0 +1,13 @@
+version: "3"
+services:
+  app:
+    container_name: "app"
+    build:
+      context: .
+      dockerfile: hello-world/DockerFile.local
+    volumes:
+      - ./:/code
+    tty: true
+    ports:
+      - "5353:8080"
+    command: /bin/bash

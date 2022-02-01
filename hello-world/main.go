@@ -1,51 +1,41 @@
 package main
 
 import (
-	"errors"
-	"fmt"
-	"io/ioutil"
-	"net/http"
+	"log"
+	"context"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/awslabs/aws-lambda-go-api-proxy/gin"
+	"github.com/gin-gonic/gin"
 )
 
-var (
-	// DefaultHTTPGetAddress Default Address
-	DefaultHTTPGetAddress = "https://checkip.amazonaws.com"
+var ginLambda *ginadapter.GinLambda
 
-	// ErrNoIP No IP found in response
-	ErrNoIP = errors.New("No IP in HTTP response")
+func init() {
+	// stdout and stderr are sent to AWS CloudWatch Logs
+	log.Printf("Gin cold start")
+	r := gin.Default()
+	r.GET("/hello/:username", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "Hello 3," + c.Param("username"),
+		})
+	})
+	r.GET("/hello/hoge", func(c *gin.Context) {
+		c.JSON(500, gin.H{
+			"message": "ERROR",
+		})
+	})
 
-	// ErrNon200Response non 200 status code in response
-	ErrNon200Response = errors.New("Non 200 Response found")
-)
+	ginLambda = ginadapter.New(r)
+}
 
-func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	resp, err := http.Get(DefaultHTTPGetAddress)
-	if err != nil {
-		return events.APIGatewayProxyResponse{}, err
-	}
-
-	if resp.StatusCode != 200 {
-		return events.APIGatewayProxyResponse{}, ErrNon200Response
-	}
-
-	ip, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return events.APIGatewayProxyResponse{}, err
-	}
-
-	if len(ip) == 0 {
-		return events.APIGatewayProxyResponse{}, ErrNoIP
-	}
-
-	return events.APIGatewayProxyResponse{
-		Body:       fmt.Sprintf("Hello, %v", string(ip)),
-		StatusCode: 200,
-	}, nil
+func Handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	// If no name is provided in the HTTP request body, throw an error
+	log.Print("request: %v", req)
+	return ginLambda.ProxyWithContext(ctx, req)
 }
 
 func main() {
-	lambda.Start(handler)
+	lambda.Start(Handler)
 }

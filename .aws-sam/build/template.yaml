@@ -1,0 +1,85 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'sam-app
+
+  Sample SAM Template for sam-app
+
+  '
+Globals:
+  Function:
+    Timeout: 5
+Resources:
+  HelloWorldFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      Architectures:
+      - x86_64
+      Policies:
+      - VPCAccessPolicy: {}
+      - Statement:
+        - Sid: EC2DescribeInstancesPolicy
+          Effect: Allow
+          Action:
+          - ec2:DescribeInstances
+          Resource: '*'
+      VpcConfig:
+        SecurityGroupIds:
+        - sg-06d4abe33254d3815
+        SubnetIds:
+        - subnet-d40df69c
+        - subnet-01d9ec5a
+      AutoPublishAlias: live
+      DeploymentPreference:
+        Type: Canary10Percent5Minutes
+      Events:
+        CatchAll:
+          Type: Api
+          Properties:
+            Path: /hello/{username}
+            Method: GET
+            RestApiId:
+              Ref: HelloWorldApiGatewayApi
+      Environment:
+        Variables:
+          PARAM1: VALUE
+      ImageUri: helloworldfunction:go1.x-v1
+    Metadata:
+      DockerTag: go1.x-v1
+      DockerContext: ./hello-world
+      Dockerfile: Dockerfile
+  HelloWorldApiGatewayApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+      EndpointConfiguration:
+        Type: PRIVATE
+        VpcEndpointIds:
+        - vpce-0b2a4af900e95bd97
+      Auth:
+        ResourcePolicy:
+          CustomStatements:
+          - Effect: Allow
+            Principal: '*'
+            Action: execute-api:Invoke
+            Resource: execute-api:/Prod/GET/*
+            Condition:
+              StringEquals:
+                aws:SourceVpc: vpc-ff675e98
+Outputs:
+  HelloWorldAPI:
+    Description: API Gateway endpoint URL for Prod environment for First Function
+    Value:
+      Fn::Sub: https://${HelloWorldApiGatewayApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello/
+  HelloWorldFunction:
+    Description: First Lambda Function ARN
+    Value:
+      Fn::GetAtt:
+      - HelloWorldFunction
+      - Arn
+  HelloWorldFunctionIamRole:
+    Description: Implicit IAM Role created for Hello World function
+    Value:
+      Fn::GetAtt:
+      - HelloWorldFunctionRole
+      - Arn

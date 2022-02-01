@@ -1,0 +1,18 @@
+FROM public.ecr.aws/bitnami/golang:1.17 as build-image
+
+
+# localで実行するために、runtime interface emulatorのinstall
+#ADD https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest/download/aws-lambda-rie /usr/bin/aws-lambda-rie
+#RUN chmod 755 /usr/bin/aws-lambda-rie
+#COPY entry.sh "/entry.sh"
+#RUN chmod 755 /entry.sh
+
+COPY hello-world/go.mod /code/go.mod
+COPY hello-world/go.sum /code/go.sum
+WORKDIR /code
+RUN ls
+RUN go mod download
+COPY . /code
+
+#ENTRYPOINT [ "/bin/bash", "/entry.sh" ]
+CMD go run main.go

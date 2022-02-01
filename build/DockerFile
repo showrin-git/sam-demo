@@ -1,0 +1,11 @@
+FROM golang:1.16
+
+COPY build/go.mod /code/go.mod
+COPY build/go.sum /code/go.sum
+WORKDIR /code
+RUN ls
+RUN go mod download
+
+COPY . /code
+
+CMD go run main.go

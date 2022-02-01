@@ -1,9 +1,9 @@
-FROM public.ecr.aws/bitnami/golang:1.16 as build-image
+FROM public.ecr.aws/bitnami/golang:1.17 as build-image
 
 WORKDIR /go/src
 COPY go.mod go.sum main.go ./
 
-RUN go build -o ../bin
+RUN go build -o ../bin -gcflags='-N -l'
 
 FROM public.ecr.aws/lambda/go:1
 
