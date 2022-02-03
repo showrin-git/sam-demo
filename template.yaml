@@ -17,6 +17,7 @@ Resources:
       PackageType: Image
       Architectures:
         - x86_64
+      FunctionName: helloworld-api
       Policies:
         - VPCAccessPolicy: {}
         - Statement:
@@ -34,14 +35,6 @@ Resources:
       AutoPublishAlias: live
       DeploymentPreference:
         Type: Canary10Percent5Minutes
-      Events:
-        CatchAll:
-          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
-          Properties:
-            Path: /hello/{username}
-            Method: GET
-            RestApiId:
-              Ref: HelloWorldApiGatewayApi
       Environment: # More info about Env Vars: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#environment-object
         Variables:
           PARAM1: VALUE
@@ -50,38 +43,19 @@ Resources:
       DockerContext: ./hello-world
       Dockerfile: Dockerfile
 
-  HelloWorldApiGatewayApi:
-    Type: AWS::Serverless::Api
-    Properties:
-      StageName: Prod
-      EndpointConfiguration:
-        Type: PRIVATE
-        VpcEndpointIds:
-          - vpce-0b2a4af900e95bd97
-      Auth:
-        ResourcePolicy:
-          CustomStatements: [{
-            "Effect": "Allow",
-            "Principal": "*",
-            "Action": "execute-api:Invoke",
-            "Resource": "execute-api:/Prod/GET/*",
-            "Condition": {
-                "StringEquals": {
-                    "aws:SourceVpc": "vpc-ff675e98"
-                }
-              }
-          }]
+  HelloWorldTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties: 
+      Name: HelloWorldTargetGroup
+      HealthCheckTimeoutSeconds: 30
+      Targets: 
+        - Id: !GetAtt HelloWorldFunction.Arn
+      TargetType: lambda
 
-Outputs:
-  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
-  # Find out more about other implicit resources you can reference within SAM
-  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
-  HelloWorldAPI:
-    Description: "API Gateway endpoint URL for Prod environment for First Function"
-    Value: !Sub "https://${HelloWorldApiGatewayApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello/"
-  HelloWorldFunction:
-    Description: "First Lambda Function ARN"
-    Value: !GetAtt HelloWorldFunction.Arn
-  HelloWorldFunctionIamRole:
-    Description: "Implicit IAM Role created for Hello World function"
-    Value: !GetAtt HelloWorldFunctionRole.Arn
+  HelloWorldLambdaPermission:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !GetAtt HelloWorldFunction.Arn
+      Principal: "elasticloadbalancing.amazonaws.com"
+      SourceArn: !Sub "arn:aws:elasticloadbalancing:${AWS::Region}:${AWS::AccountId}:*" # ワイルドカードを採用
