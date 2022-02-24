@@ -1,6 +1,6 @@
 {
     "resource": "/hello/{username}",
-    "path": "/hello/showrin",
+    "path": "/hello",
     "httpMethod": "GET",
     "queryStringParameters": {
         "username": "showrin"

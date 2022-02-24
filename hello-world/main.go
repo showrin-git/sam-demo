@@ -1,41 +1,78 @@
 package main
 
 import (
-	"log"
 	"context"
+	"fmt"
+    "encoding/json"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/awslabs/aws-lambda-go-api-proxy/gin"
-	"github.com/gin-gonic/gin"
 )
 
-var ginLambda *ginadapter.GinLambda
 
-func init() {
-	// stdout and stderr are sent to AWS CloudWatch Logs
-	log.Printf("Gin cold start")
-	r := gin.Default()
-	r.GET("/hello/:username", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "Hello 3," + c.Param("username"),
-		})
-	})
-	r.GET("/hello/hoge", func(c *gin.Context) {
-		c.JSON(500, gin.H{
-			"message": "ERROR",
-		})
-	})
+func helloHandler(username string) (events.ALBTargetGroupResponse, error) {
+    res, err := json.Marshal(username)
 
-	ginLambda = ginadapter.New(r)
+    if err != nil {
+        return events.ALBTargetGroupResponse {
+        StatusCode: 500,
+            Body: fmt.Sprintf("%s", err),
+        }, err
+    }
+
+    return events.ALBTargetGroupResponse {
+    Headers: map[string]string{
+        "content-type": "application/json",
+    },
+    Body: fmt.Sprintf("Hello %s", string(res)),
+    }, nil
 }
 
-func Handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+func errorHandler() (events.ALBTargetGroupResponse, error) {
+    return events.ALBTargetGroupResponse {
+    StatusCode: 500,
+    Headers: map[string]string{
+        "content-type": "text/plain; charset=utf-8",
+    },
+    Body: fmt.Sprintf("500 internal server error\n"),
+    }, nil
+}
+
+func notFoundHandler() (events.ALBTargetGroupResponse, error) {
+    return events.ALBTargetGroupResponse {
+    StatusCode: 404,
+    Headers: map[string]string{
+        "content-type": "text/plain; charset=utf-8",
+    },
+    Body: fmt.Sprintf("404 not found\n"),
+    }, nil
+}
+
+func handleRequest(ctx context.Context, request events.ALBTargetGroupRequest) (events.ALBTargetGroupResponse, error) {
+
+	fmt.Printf("Processing request data for traceId %s.\n", request.Headers["x-amzn-trace-id"])
+	fmt.Printf("Body size = %d.\n", len(request.Body))
+	fmt.Printf("context = %s.\n", ctx)
+    username := request.QueryStringParameters["username"]
+
+    for key, value := range request.Headers {
+		fmt.Printf("    %s: %s\n", key, value)
+	}
+    switch request.Path {
+        case "/hello": return helloHandler(username)
+        case "/fuga": return errorHandler()
+    }
+    return notFoundHandler()
+    
+}
+
+
+func Handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.ALBTargetGroupResponse, error) {
 	// If no name is provided in the HTTP request body, throw an error
-	log.Print("request: %v", req)
-	return ginLambda.ProxyWithContext(ctx, req)
+
+	return events.ALBTargetGroupResponse{Body: request.Body, StatusCode: 200, StatusDescription: "200 OK", IsBase64Encoded: false, Headers: map[string]string{}}, nil
 }
 
 func main() {
-	lambda.Start(Handler)
+	lambda.Start(handleRequest)
 }

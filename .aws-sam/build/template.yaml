@@ -15,6 +15,7 @@ Resources:
       PackageType: Image
       Architectures:
       - x86_64
+      FunctionName: helloworld-api
       Policies:
       - VPCAccessPolicy: {}
       - Statement:
@@ -32,14 +33,6 @@ Resources:
       AutoPublishAlias: live
       DeploymentPreference:
         Type: Canary10Percent5Minutes
-      Events:
-        CatchAll:
-          Type: Api
-          Properties:
-            Path: /hello/{username}
-            Method: GET
-            RestApiId:
-              Ref: HelloWorldApiGatewayApi
       Environment:
         Variables:
           PARAM1: VALUE
@@ -48,38 +41,25 @@ Resources:
       DockerTag: go1.x-v1
       DockerContext: ./hello-world
       Dockerfile: Dockerfile
-  HelloWorldApiGatewayApi:
-    Type: AWS::Serverless::Api
+  HelloWorldTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      StageName: Prod
-      EndpointConfiguration:
-        Type: PRIVATE
-        VpcEndpointIds:
-        - vpce-0b2a4af900e95bd97
-      Auth:
-        ResourcePolicy:
-          CustomStatements:
-          - Effect: Allow
-            Principal: '*'
-            Action: execute-api:Invoke
-            Resource: execute-api:/Prod/GET/*
-            Condition:
-              StringEquals:
-                aws:SourceVpc: vpc-ff675e98
-Outputs:
-  HelloWorldAPI:
-    Description: API Gateway endpoint URL for Prod environment for First Function
-    Value:
-      Fn::Sub: https://${HelloWorldApiGatewayApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello/
-  HelloWorldFunction:
-    Description: First Lambda Function ARN
-    Value:
-      Fn::GetAtt:
-      - HelloWorldFunction
-      - Arn
-  HelloWorldFunctionIamRole:
-    Description: Implicit IAM Role created for Hello World function
-    Value:
-      Fn::GetAtt:
-      - HelloWorldFunctionRole
-      - Arn
+      Name: HelloWorldTargetGroup
+      HealthCheckTimeoutSeconds: 30
+      Targets:
+      - Id:
+          Fn::GetAtt:
+          - HelloWorldFunction
+          - Arn
+      TargetType: lambda
+  HelloWorldLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+        - HelloWorldFunction
+        - Arn
+      Principal: elasticloadbalancing.amazonaws.com
+      SourceArn:
+        Fn::Sub: arn:aws:elasticloadbalancing:${AWS::Region}:${AWS::AccountId}:*
